@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Sony PlayStation 4 network device configuration
+#
+
+config NET_VENDOR_SONY
+	bool "Sony devices"
+	default y
+	depends on PCI
+	help
+	  If you have a network (Ethernet) device belonging to this class,
+	  say Y.
+
+	  Note that the answer to this question doesn't directly affect the
+	  kernel: saying N will just cause the configurator to skip all the
+	  questions about Sony devices. If you say Y, you will be asked for
+	  your specific device in the following questions.
+
+if NET_VENDOR_SONY
+
+config PS4_GBE
+	tristate "PlayStation 4 Baikal gigabit Ethernet support"
+	depends on PCI && X86_64
+	depends on X86_PS4
+	select CRC32
+	help
+	  Driver for the gigabit Ethernet controller in the PlayStation 4
+	  Slim's Baikal southbridge, PCI function 00:14.1, device ID
+	  104d:90d8. Written from a hardware specification recovered by
+	  reverse engineering, published at
+	  https://github.com/Gcsman110/ps4-mts-linux-driver
+
+	  The PHY is a MediaTek MT7531-family GPHY on the same die, reached
+	  through the controller's own MDIO window.
+
+	  This driver needs the Baikal PCIe glue driver (drivers/ps4) for
+	  per-part EFUSE calibration, so PS4 must be enabled.
+
+	  Say Y here to build it into the kernel, which is usually what you
+	  want: the root filesystem is frequently on the network this device
+	  provides, so loading it as a module can be too late to be useful.
+
+	  To build it as a module choose M; the module will be called
+	  ps4_gbe.
+
+endif # NET_VENDOR_SONY

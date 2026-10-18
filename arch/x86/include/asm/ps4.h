@@ -49,6 +49,9 @@ extern int apcie_icc_cmd(u8 major, u16 minor, const void *data,
 //Baikal		 
 extern int bpcie_assign_irqs(struct pci_dev *dev, int nvec);
 extern void bpcie_free_irqs(unsigned int virq, unsigned int nr_irqs);
+extern int bpcie_glue_read32(struct pci_dev *dev, u32 offset, u32 *val);
+extern int bpcie_glue_bar2_read32(struct pci_dev *dev, u32 offset,
+				  u32 *val);
 
 extern int bpcie_status(void);
 extern int bpcie_icc_cmd(u8 major, u16 minor, const void *data,
@@ -83,6 +86,16 @@ static inline int bpcie_assign_irqs(struct pci_dev *dev, int nvec)
 
 static inline void bpcie_free_irqs(unsigned int virq, unsigned int nvec)
 {
+}
+static inline int bpcie_glue_read32(struct pci_dev *dev, u32 offset,
+				    u32 *val)
+{
+	return -ENODEV;
+}
+static inline int bpcie_glue_bar2_read32(struct pci_dev *dev, u32 offset,
+					 u32 *val)
+{
+	return -ENODEV;
 }
 
 static inline int bpcie_status(void)

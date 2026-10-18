@@ -429,6 +429,100 @@ void bpcie_free_irqs(unsigned int virq, unsigned int nr_irqs)
 }
 EXPORT_SYMBOL(bpcie_free_irqs);
 
+/*
+ * Read a 32-bit word from the Baikal southbridge function-4 BAR4 window.
+ *
+ * The GBE PHY needs per-console trim values that live in the EFUSE/chip-ID
+ * region at BAR4 + 0xC000.  That BAR belongs to this driver, which already
+ * maps it and holds its mem region, so reads are vended from here rather than
+ * having a second driver map the same range behind our back.
+ *
+ * @dev is any function on the Baikal slot; func 4 is located from it.
+ */
+int bpcie_glue_read32(struct pci_dev *dev, u32 offset, u32 *val)
+{
+	struct pci_dev *sc_dev;
+	struct bpcie_dev *sc;
+	int ret = 0;
+
+	sc_dev = pci_get_slot(dev->bus,
+			      (dev->devfn & ~7) | BAIKAL_FUNC_ID_PCIE);
+	if (!bpcie_is_compatible_device(sc_dev)) {
+		ret = -ENODEV;
+		goto out;
+	}
+
+	sc = pci_get_drvdata(sc_dev);
+	if (!sc || !sc->bar4) {
+		dev_err(&dev->dev, "bpcie: not ready yet, cannot read glue\n");
+		ret = -ENODEV;
+		goto out;
+	}
+
+	if (offset > pci_resource_len(sc_dev, 4) - sizeof(u32)) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	*val = ioread32(sc->bar4 + offset);
+out:
+	if (sc_dev)
+		pci_dev_put(sc_dev);
+	return ret;
+}
+EXPORT_SYMBOL(bpcie_glue_read32);
+
+/*
+ * Read a 32-bit word from the Baikal southbridge function-4 BAR2 window.
+ *
+ * BAR4 (above) carries the EFUSE and chip-ID region.  BAR2 is a separate
+ * window holding, among other things, a per-block hardware reset array at
+ * +0x180000 and a Sonics Silicon Backplane initiator-agent array at
+ * +0x140000.  The GBE driver samples both, read-only, to establish whether
+ * anything in its own block was left held in reset or quiesced across a
+ * kexec -- state that is invisible in the NIC's own register space.
+ *
+ * THERE IS DELIBERATELY NO BAR2 WRITE ACCESSOR.  The reset array is shared
+ * with SATA and USB, and asserting the wrong entry would reset a block the
+ * running kernel depends on.  Do not add one without knowing which entry
+ * belongs to which block.
+ *
+ * @dev is any function on the Baikal slot; func 4 is located from it.
+ */
+int bpcie_glue_bar2_read32(struct pci_dev *dev, u32 offset, u32 *val)
+{
+	struct pci_dev *sc_dev;
+	struct bpcie_dev *sc;
+	int ret = 0;
+
+	sc_dev = pci_get_slot(dev->bus,
+			      (dev->devfn & ~7) | BAIKAL_FUNC_ID_PCIE);
+	if (!bpcie_is_compatible_device(sc_dev)) {
+		ret = -ENODEV;
+		goto out;
+	}
+
+	sc = pci_get_drvdata(sc_dev);
+	if (!sc || !sc->bar2) {
+		dev_err(&dev->dev, "bpcie: not ready yet, cannot read glue bar2\n");
+		ret = -ENODEV;
+		goto out;
+	}
+
+	if (offset > pci_resource_len(sc_dev, 2) - sizeof(u32)) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	*val = ioread32(sc->bar2 + offset);
+out:
+	if (sc_dev)
+		pci_dev_put(sc_dev);
+	return ret;
+}
+EXPORT_SYMBOL(bpcie_glue_bar2_read32);
+
+
 static void bpcie_glue_remove(struct bpcie_dev *sc);
 
 static struct pci_dev * get_bpcie_device(struct bpcie_dev *sc, u32 bcpie_func) {
